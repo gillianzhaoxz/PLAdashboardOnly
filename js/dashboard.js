@@ -5,6 +5,8 @@ Leaflet Configuration
 var map = L.map('map', {
   center: [39.9525, -75.1639],
   zoom: 12,
+  preferCanvas: true,
+  renderer: L.Canvas
 });
 var Stamen_TonerLite = L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
   attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -15,7 +17,49 @@ var Stamen_TonerLite = L.tileLayer('http://{s}.basemaps.cartocdn.com/light_all/{
 }).addTo(map);
 
 
-var dataset = "data/dashboardLatlon.json"
+
+var dataset = "data/dashboardData.geojson"
+var expr = {delinquent: 0, 
+            usbank: 0, 
+            sheriff: 0, 
+            devInterest: 0};
+var myMarkers;
+var addrInput;
+var myPoint;
+
+var markerOptions = {
+  radius: 5,
+  fillColor: "#2aa353",
+  fillOpacity: 0.2,
+  color: "#2aa353",
+  opacity: 0,
+}; 
+
+var myPointOptions = {
+  radius: 10,
+  fillColor: "#ff0000",
+  fillOpacity: 0.3,
+  color: "#ff0000",
+  opacity: 0,
+}
+
+var devInterestCat = "unknown";
+var delinquentCat = "unknown";
+var usbankCat = "unknown";
+var sheriffCat = "unknown";
+var inputAddr = ""
+
+var resetMap = function (){
+  myMarkers.forEach(function(marker) {
+    map.removeLayer(marker)
+  })
+}
+
+var resetPoint = function (){
+  myPoint.forEach(function(marker) {
+    map.removeLayer(marker)
+  })
+}
 
 
 
@@ -23,224 +67,172 @@ function loadData() {
   fetch(dataset)
     .then(resp => resp.json())
     .then(data => {
-      //var dataLatlon = data;
-      //console.log(dataLatlon);
+      featureCollection = data.features;
 
-      var points = data; 
-      
-      L.canvasOverlay()
-          .drawing(drawingOnCanvas)
-          .addTo(map);
-      //console.log(points['latlon'].length);
-      function drawingOnCanvas(canvasOverlay, params) {
-          var ctx = params.canvas.getContext('2d');
-          ctx.clearRect(0, 0, params.canvas.width, params.canvas.height);
-          ctx.fillStyle = "rgba(42, 163, 83, 0.5)";
-          for (var i = 0; i < points['latlon'].length; i++) {
-              var d = points['latlon'][i].split(',');
-              if (params.bounds.contains([parseFloat(d[0]), parseFloat(d[1])])) {
-                  dot = canvasOverlay._map.latLngToContainerPoint([parseFloat(d[0]), parseFloat(d[1])]);
-                  ctx.beginPath();
-                  ctx.arc(dot.x, dot.y, 3, 0, Math.PI * 2);
-                  ctx.fill();
-                  ctx.closePath();
-              }
+      featureSelected = featureCollection.filter(f => 
+        f.properties.delinquent > expr.delinquent 
+        && f.properties.usbank > expr.usbank
+        && f.properties.sheriff > expr.sheriff
+        && (f.properties.devInterest > expr.devInterest))
+
+      myMarkers = featureSelected.map(function(a) { 
+        var risk = Number(a.properties.devInterest);
+        switch (risk) {
+          case 3:
+            devInterestCat = "High risk";
+            break;
+          case 2:
+            devInterestCat = "Low risk";
+            break;
+          case 1:
+            devInterestCat = "No risk";
+            break;
+        }
+        var delinquent = Number(a.properties.delinquent);
+        switch (delinquent) {
+          case 2:
+            delinquentCat = "Delinquent";
+            break;
+          case 1:
+            delinquentCat = "Not delinquent";
+            break;
+        }
+        var usbank = Number(a.properties.usbank);
+        switch (usbank) {
+          case 2:
+            usbankCat = "Yes";
+            break;
+          case 1:
+            usbankCat = "No";
+            break;
+        }
+        var sheriff = a.properties.sheriff;
+        if (sheriff == 2) {
+          if (a.properties.display_date != null) {
+            sheriffCat = a.properties.display_date.slice(0, 10);
+          } else {
+            sheriffCat = "Unknown date";
           }
-      };
+        } else {
+          sheriffCat = "No"
+        }
 
 
-    });
+
+
+        return L.circleMarker([a.geometry.coordinates[1], a.geometry.coordinates[0]], markerOptions)
+        .addTo(map)
+        .bindPopup(
+          a.properties.location + " <br>" +
+          "<br>Development risk: " + devInterestCat + 
+          "<br>Delinquency status: " + delinquentCat +
+          "<br>US bank lien: " + usbankCat +
+          "<br>Total due: $" + a.properties.total_due +
+          "<br>Sheriff sale: " + sheriffCat +
+          "<br>Current owner: " + a.properties.owner
+          ) 
+      });
+    })
 }
 
-loadData();
+function highlightOne() {
+  fetch(dataset)
+    .then(resp => resp.json())
+    .then(data => {
+      featureCollection = data.features;
 
+      featureSelected = featureCollection.filter(f => 
+        f.properties.location == inputAddr)
 
-
-
-
-
-
-
-/* ===
-var featureGroup;
-var vaccine = "https://raw.githubusercontent.com/gxzhao1/OSGIS-week9/master/assignment/vaccination_by_zip.json"
-var vaccineData;
-var pop =
-  "https://raw.githubusercontent.com/gxzhao1/OSGIS-week9/master/assignment/pop_by_zip.json";
-var popData;
-var newData;
-
-/* =====================
-var showResults = function() {
-  
-  This function uses some jQuery methods that may be new. $(element).hide()
-  will add the CSS "display: none" to the element, effectively removing it
-  from the page. $(element).show() removes "display: none" from an element,
-  returning it to the page. You don't need to change this part.
-  
-  // => <div id="intro" css="display: none">
-  $('#intro').hide();
-  // => <div id="results">
-  $('#results').show();
-};
-===================== */
-
-var eachFeatureFunction = function(layer) {
-  layer.on('click', function (event) {
-    //console.log(layer.feature.properties.CODE)
-    var zip = layer.feature.properties.CODE;
-    var fullvacstat = vaccineData[zip].fully_vaccinated;
-    //console.log(fullvacstat)
-    var partvacstat = vaccineData[zip].partially_vaccinated;
-
-    // bar chart
-    ctxBar = $("#barChart");
-    barChart = new Chart(ctxBar, {
-      type: "bar",
-      data: {
-        labels: ["Partially Vaccinated", "Fully Vaccinated"],
-        datasets: [
-          {data: [
-              partvacstat,
-              fullvacstat,
-            ],
-            backgroundColor: [
-              "rgba(250, 225, 221, 1)",
-              "rgba(250, 225, 221, 1)",
-            ],
-          },
-        ],
-      },
-      options: {
-        scales: {
-          y: {
-            beginAtZero: true,
-          },
-        },
-      },
-    }); 
-    // pie chart prep -> lookup pop by zip
-    zipPop = _.filter(popData, function (i) {
-      return i["ZIP"] == zip;
-    })[0].POP;
-
-    // pie chart prep -> calculate %
-    fullyvacperc = Math.round((fullvacstat / zipPop) * 100);
-    partvacperc =  Math.round((partvacstat / zipPop) * 100);
-    unvacperc = 100 - fullyvacperc - partvacperc;
-
-    // pie chart
-    ctxPie = $("#pieChart");
-    pieChart = new Chart(ctxPie, {
-      type: "doughnut",
-      data: {
-        labels: [
-          "Unvaccinated %",
-          "Partially Vaccinated %",
-          "Fully Vaccinated %",
-        ],
-        datasets: [
-          {
-            label: "Vaccination Progress",
-            data: [unvacperc, partvacperc, fullyvacperc],
-            backgroundColor: [
-              "rgba(216, 226, 220, 1)",
-              "rgba(250, 225, 221, 0.5)",
-              "rgba(250, 225, 221, 1)",
-            ],
-
-          },
-        ],
-      },
-    });
-/*     switch (layer.feature.properties.COLLDAY) {
-      case 'MON':   
-        day = "Monday";
-        break;
-      case 'TUE':   
-        day = "Tuesday";
-        break;
-      case 'WED':   
-        day = "Wednesday";
-        break;
-      case 'THU':   
-        day = "Thursday";
-        break;
-      case 'FRI':   day = "Friday";
-        break;
-    } */
-    // $('.day-of-week').text(day)
-
-    layer.feature.properties["fullyperc"] = fullyvacperc;
-    //showResults();
-    map.fitBounds( event.target.getBounds())
-  });
-};
-
-var myStyle = function(feature) {
-  var found = newData.find(x => x.ZIP == Number(feature.properties.CODE));
-  //console.log(found)
-  if (found != undefined) {
-    val = found.zfullyperc;
-  } else {
-    val = 0
-  }
-  //console.log(val)
-
-  function getColor(d, min = 0, mean = 20, max = 100, startColor = '#D8E2DC', medColor = '#FAE1DD', endColor="#f28482") {
-    const scale = chroma.scale([startColor, medColor, endColor]).domain([min, mean, max]);
-  return scale(d).hex();
-  }
-
-  //console.log(String(getColor(Number(val))))
-
-  return {fillOpacity: 0.9,
-          color: String(getColor(Number(val))),
-          fillColor: String(getColor(Number(val)))}
-};
-
+      myPoint = featureSelected.map(function(a) { 
+        return L.circleMarker([a.geometry.coordinates[1], a.geometry.coordinates[0]], myPointOptions)
+        .addTo(map)
+        .bindPopup(
+          a.properties.location + " <br>" +
+          "<br>Development risk: " + devInterestCat + 
+          "<br>Delinquency status: " + delinquentCat +
+          "<br>US bank lien: " + usbankCat +
+          "<br>Total due: $" + a.properties.total_due +
+          "<br>Sheriff sale: " + sheriffCat +
+          "<br>Current owner: " + a.properties.owner
+          ) 
+      });
+    })
+}
 
 $(document).ready(function() {
-  $.ajax(dataset).done(function(json) {
-    var parsedData = JSON.parse(json);
-    var data = parsedData.features;
+ 
+  function knowCase() {
+    var delinquentCheck = $("input#check-delinquent").prop('checked');
+    var usbankCheck = $("input#check-usbank").prop('checked');
+    var sheriffCheck = $("input#check-sheriff").prop('checked');
+    var devInterestCheck = $("input#check-devInterest").prop('checked');
 
-    $.ajax(vaccine).done(function(json){
-      var parsedData = JSON.parse(json);
-      vaccineData = parsedData;
-      //console.log(vaccineData)
-      $.ajax(pop).done(function(json){
-        var parsedData = JSON.parse(json);
-        popData = parsedData;
-        //console.log("pop", popData)
+    function getExpr() {
+      if (delinquentCheck == true) {
+        expr.delinquent = 1
+      } else {
+        expr.delinquent = 0
+      }
+      if (usbankCheck == true) {
+        expr.usbank = 1
+      } else {
+        expr.usbank = 0
+      }
+      if (sheriffCheck == true) {
+        expr.sheriff = 1
+      } else {
+        expr.sheriff = 0
+      }
+      if (devInterestCheck == true) {
+        expr.devInterest = 1
+      } else {
+        expr.devInterest = 0
+      }
+      return expr;
+    }
 
-        // create new dataset
-        newData = [];
-        popData.map(a => {
-          var z = a.ZIP;
-          var zpop = a.POP;
-          if (_.contains(Object.keys(vaccineData), String(z))) {
-            var zfullvac = vaccineData[z].fully_vaccinated;
-            var zpartvac = vaccineData[z].partially_vaccinated;
-            var zfullyvacperc = Math.round((zfullvac / zpop) * 100);
-            var zpartvacperc =  Math.round((zpartvac / zpop) * 100);
-            var zunvacperc = 100 - zfullyvacperc - zpartvacperc;
-            a["zfullyperc"] = zfullyvacperc;
-            newData.push(a)
-          } else {
-            newData = newData;
-          }
-        })
+    getExpr();
+  }
 
-        featureGroup = L.geoJson(data, {
-          style: myStyle,
-          //filter: myFilter
-        }).addTo(map);
-        //legend.addTo(map);
-        // quite similar to _.each
-        featureGroup.eachLayer(eachFeatureFunction);
+  loadData();
+  highlightOne();
+  var onStringFilterChange = function(e) {
+    resetPoint();
+    inputAddr = e.target.value.toUpperCase();
+    console.log(inputAddr)
+    highlightOne();
+    
+  };
 
-      })
-    })
-  });
-});
+  $('#addrInput').keyup(onStringFilterChange);
+
+  $("input#check-delinquent").on("click", function(e) {
+    knowCase();
+    console.log(expr)
+    resetMap();
+    loadData();
+  })
+  $("input#check-usbank").on("click", function(e) {
+    knowCase();
+    console.log(expr)
+    resetMap();
+    loadData();
+  })
+  $("input#check-sheriff").on("click", function(e) {
+    knowCase();
+    console.log(expr)
+    resetMap();
+    loadData();
+  })
+  $("input#check-devInterest").on("click", function(e) {
+    knowCase();
+    console.log(expr)
+    resetMap();
+    loadData();
+  })
+
+})
+
+
+

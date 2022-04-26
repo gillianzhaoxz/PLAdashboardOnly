@@ -67,6 +67,7 @@ L.CanvasOverlay = L.Class.extend({
 
         this._reset();
     },
+    
 
     onRemove: function (map) {
         map.getPanes().overlayPane.removeChild(this._canvas);

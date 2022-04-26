@@ -272,3 +272,20 @@ p {
 .form-check-label {
   color: #2aa353;
 }
+
+/* ============= popup ============= */
+.leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: #000000bf;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+}
+
+.leaflet-popup-content {
+  margin: 30px 30px;
+  line-height: 1.4;
+  color: #2aa353;
+  font-size: 20px;
+  min-width: 400px;
+  max-width: 500px;
+  min-height: 150px;
+  max-height: 300px;
+}
